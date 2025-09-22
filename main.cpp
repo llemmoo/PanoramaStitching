@@ -2,7 +2,7 @@
 #include <opencv2/opencv.hpp>
 
 int main() {
-    cv::Mat image = cv::imread("C:/Users/Oliver/CLionProjects/PanoramaStitching/test.jpg");
+    cv::Mat image = cv::imread("../test.jpg");
 
     if (image.empty()) {
 
