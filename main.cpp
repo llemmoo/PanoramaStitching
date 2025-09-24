@@ -3,10 +3,14 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <opencv2/core/utility.hpp>
 
 int main() {
+    std::cout << "Runtime OpenCV: " << cv::getVersionString() << std::endl;
+    FeatureDetection::feature_detector detector;
+
+
     while (true) {
-        std::cout << "\n=== Image Tool ===\n";
         std::cout << "1. Feature Detection\n";
         std::cout << "2. Image Stitching\n";
         std::cout << "0. Exit\n";
@@ -20,14 +24,8 @@ int main() {
             break;
         }
         else if (choice == 1) {
-            std::string filename;
-            std::cout << "Enter image filename: ";
-            std::cin >> filename;
-
-            // Example call
-            std::cout << "Running feature detection on images";
-            // auto features = detector.detectFeatures(loadImage(filename));
-            // std::cout << "Found " << features.size() << " features.\n";
+            std::cout << "Running feature detection on images\n";
+            detector.run_feature_detection();
         }
         else if (choice == 2) {
             int numImages;

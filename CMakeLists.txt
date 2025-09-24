@@ -3,6 +3,9 @@ project(PanoramaStitching)
 
 set(CMAKE_CXX_STANDARD 20)
 
+set(OpenCV_DIR "C:/lib/opencv-install")
+
+
 find_package(OpenCV REQUIRED)
 message(STATUS "OpenCV version: ${OpenCV_VERSION}")
 
@@ -11,6 +14,7 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 add_executable(PanoramaStitching main.cpp
         featureDetection/FeatureDetector.h
         HomographyEstimation/HomographyEstimator.h
-        imageStitching/ImageStitcher.h)
+        imageStitching/ImageStitcher.h
+        featureDetection/FeatureDetector.cpp)
 
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
