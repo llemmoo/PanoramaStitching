@@ -8,7 +8,7 @@ using namespace cv;
 using namespace std;
 
 void feature_detector::run_feature_detection() {
-    Ptr<FeatureDetector> orb = ORB::create(5000);
+    Ptr<FeatureDetector> orb = ORB::create(50000);
     Ptr<FeatureDetector> akaze = AKAZE::create();
 
     vector<string> imagePaths =
@@ -20,7 +20,7 @@ void feature_detector::run_feature_detection() {
         "../images/stair1.jpg",
         "../images/stair2.jpg"
     };
-    for (string path : imagePaths)
+    for (const string& path : imagePaths)
     {
         Mat img = imread(path, IMREAD_COLOR);
         if (img.empty())
