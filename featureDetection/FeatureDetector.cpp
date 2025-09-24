@@ -8,8 +8,13 @@ using namespace cv;
 using namespace std;
 
 void feature_detector::run_feature_detection() {
+    //When nfeatures is not set for ORB it caps at 500, which akaze does not. Therefore, I'm setting orb at 50000, since matches stopped around 40000
     Ptr<FeatureDetector> orb = ORB::create(50000);
     Ptr<FeatureDetector> akaze = AKAZE::create();
+    Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create(DescriptorMatcher::BRUTEFORCE);
+
+    chrono::microseconds akazeBrickMatchDuration, akazeCarMatchDuration, akazeStairMatchDuration;
+    chrono::microseconds orbBrickMatchDuration, orbCarMatchDuration, orbStairMatchDuration;
 
     vector<string> imagePaths =
     {
@@ -20,30 +25,140 @@ void feature_detector::run_feature_detection() {
         "../images/stair1.jpg",
         "../images/stair2.jpg"
     };
-    for (const string& path : imagePaths)
-    {
-        Mat img = imread(path, IMREAD_COLOR);
-        if (img.empty())
+
+        for (int i = 0; i < imagePaths.size()-1; i+=2)
         {
-            cerr << "Could not read image: " << path << endl;
-            continue;
+            Mat img1 = imread(imagePaths[i], IMREAD_COLOR);
+            Mat img2 = imread(imagePaths[i+1], IMREAD_COLOR);
+
+            if (img1.empty() || img2.empty())
+            {
+                cerr << "Could not read images: " << endl;
+                continue;
+            }
+
+            vector<KeyPoint> keypoints_orb1, keypoints_orb2;
+            Mat descriptors_orb1, descriptors_orb2;
+
+            auto startOrb1 = std::chrono::system_clock::now();
+            akaze->detectAndCompute(img1, noArray(), keypoints_orb1, descriptors_orb1);
+            auto stopOrb1 = std::chrono::system_clock::now();
+
+            auto startOrb2 = std::chrono::system_clock::now();
+            akaze->detectAndCompute(img2, noArray(), keypoints_orb2, descriptors_orb2);
+            auto stopOrb2 = std::chrono::system_clock::now();
+
+            auto durationOrb1 = duration_cast<chrono::milliseconds>(stopOrb1 - startOrb1);
+            auto durationOrb2 = duration_cast<chrono::milliseconds>(stopOrb2 - startOrb2);
+
+            Mat img1_orb;
+            Mat img2_orb;
+            drawKeypoints(img1, keypoints_orb1, img1_orb, Scalar(0, 0, 255), DrawMatchesFlags::DEFAULT);
+            drawKeypoints(img2, keypoints_orb2, img2_orb, Scalar(0, 0, 255), DrawMatchesFlags::DEFAULT);
+
+            imshow("ORB - " + imagePaths[i], img1_orb);
+            imshow("ORB - " + imagePaths[i+1], img2_orb);
+
+            cout << imagePaths[i] <<": \n" <<
+                "\t ORB keypoints = " << keypoints_orb1.size() << " ORB Feature Detection Execution Time = " << durationOrb1 << endl;
+            cout << imagePaths[i+1] <<": \n" <<
+                "\t ORB keypoints = " << keypoints_orb2.size() << " ORB Feature Detection Execution Time = " << durationOrb2 << endl;
+
+            if (descriptors_orb1.empty() || descriptors_orb2.empty()) {
+                cerr << "No descriptors found for one of the images: "
+                     << imagePaths[i] << " or " << imagePaths[i+1] << endl;
+                continue;
+            }
+            std::vector< DMatch > descriptorMatches;
+            auto orbMatchStart = std::chrono::system_clock::now();
+            matcher->match( descriptors_orb1, descriptors_orb2, descriptorMatches );
+            auto orbMatchStop = std::chrono::system_clock::now();
+
+            if(i == 0)
+            {
+                orbBrickMatchDuration = duration_cast<chrono::microseconds>(orbMatchStop - orbMatchStart);
+            }
+            if (i == 2)
+            {
+                orbCarMatchDuration = duration_cast<chrono::microseconds>(orbMatchStop - orbMatchStart);
+            }
+            if (i == 4)
+            {
+                orbStairMatchDuration = duration_cast<chrono::microseconds>(orbMatchStop - orbMatchStart);
+            }
+
+            Mat img_matches;
+            drawMatches( img1, keypoints_orb1, img2, keypoints_orb2, descriptorMatches, img_matches );
+
+            imshow("Matches of" + imagePaths[i] + " & " + imagePaths[i+1], img_matches);
         }
 
-        vector<KeyPoint> keypoints_orb, keypoints_akaze;
+        for (int i = 0; i < imagePaths.size()-1; i+=2)
+        {
+            Mat img1 = imread(imagePaths[i], IMREAD_COLOR);
+            Mat img2 = imread(imagePaths[i+1], IMREAD_COLOR);
 
-        orb->detect(img, keypoints_orb);
-        akaze->detect(img, keypoints_akaze);
+            if (img1.empty() || img2.empty())
+            {
+                cerr << "Could not read images: " << endl;
+                continue;
+            }
 
-        Mat img_orb, img_akaze;
-        drawKeypoints(img, keypoints_orb, img_orb, Scalar(0, 255, 0), DrawMatchesFlags::DEFAULT);
-        drawKeypoints(img, keypoints_akaze, img_akaze, Scalar(0, 0, 255), DrawMatchesFlags::DEFAULT);
+            vector<KeyPoint> keypoints_akaze1, keypoints_akaze2;
+            Mat descriptors_akaze1, descriptors_akaze2;
 
-        imshow("ORB - " + path, img_orb);
-        imshow("AKAZE - " + path, img_akaze);
+            auto startAkaze1 = std::chrono::system_clock::now();
+            akaze->detectAndCompute(img1, noArray(), keypoints_akaze1, descriptors_akaze1);
+            auto stopAkaze1 = std::chrono::system_clock::now();
 
-        cout << "Image " << path << ": ORB keypoints = " << keypoints_orb.size()
-             << ", AKAZE keypoints = " << keypoints_akaze.size() << endl;
-    }
+            auto startAkaze2 = std::chrono::system_clock::now();
+            akaze->detectAndCompute(img2, noArray(), keypoints_akaze2, descriptors_akaze2);
+            auto stopAkaze2 = std::chrono::system_clock::now();
+
+            auto durationAkaze1 = duration_cast<chrono::milliseconds>(stopAkaze1 - startAkaze1);
+            auto durationAkaze2 = duration_cast<chrono::milliseconds>(stopAkaze2 - startAkaze2);
+
+            Mat img1_akaze;
+            Mat img2_akaze;
+            drawKeypoints(img1, keypoints_akaze1, img1_akaze, Scalar(0, 0, 255), DrawMatchesFlags::DEFAULT);
+            drawKeypoints(img2, keypoints_akaze2, img2_akaze, Scalar(0, 0, 255), DrawMatchesFlags::DEFAULT);
+
+            imshow("AKAZE - " + imagePaths[i], img1_akaze);
+            imshow("AKAZE - " + imagePaths[i+1], img2_akaze);
+
+            cout << imagePaths[i] <<": \n" <<
+                "\t AKAZE keypoints = " << keypoints_akaze1.size() << " AKAZE Feature Detection Execution Time = " << durationAkaze1 << endl;
+            cout << imagePaths[i+1] <<": \n" <<
+                "\t AKAZE keypoints = " << keypoints_akaze2.size() << " AKAZE Feature Detection Execution Time = " << durationAkaze2 << endl;
+
+            std::vector< DMatch > descriptorMatches;
+            auto akazeMatchStart = std::chrono::system_clock::now();
+            matcher->match( descriptors_akaze1, descriptors_akaze2, descriptorMatches );
+            auto akazeMatchStop = std::chrono::system_clock::now();
+
+            if(i == 0)
+            {
+                akazeBrickMatchDuration = duration_cast<chrono::microseconds>(akazeMatchStop - akazeMatchStart);
+            }
+            if (i == 2)
+            {
+                akazeCarMatchDuration = duration_cast<chrono::microseconds>(akazeMatchStop - akazeMatchStart);
+            }
+            if (i == 4)
+            {
+                akazeStairMatchDuration = duration_cast<chrono::microseconds>(akazeMatchStop - akazeMatchStart);
+            }
+
+            Mat img_matches;
+            drawMatches( img1, keypoints_akaze1, img2, keypoints_akaze2, descriptorMatches, img_matches );
+
+            imshow("Matches of" + imagePaths[i] + " & " + imagePaths[i+1], img_matches);
+        }
+
+    cout << "Brick Descriptor Matching times: " << "AKAZE = " << akazeBrickMatchDuration << ", ORB = " << orbBrickMatchDuration << endl;
+    cout << "Car Descriptor Matching times: " << "AKAZE = " << akazeCarMatchDuration << ", ORB = " << orbCarMatchDuration << endl;
+    cout << "Stair Descriptor Matching times: " << "AKAZE = " << akazeStairMatchDuration << ", ORB = " << orbStairMatchDuration << endl;
+
     cout << "Press any key to close windows..." << endl;
     waitKey(0);
     destroyAllWindows();

@@ -8,7 +8,7 @@
 namespace FeatureDetection {
     class feature_detector {
         public:
-        void run_feature_detection();
+        static void run_feature_detection();
     };
 }
 #endif //FEATUREDETECTOR_H
