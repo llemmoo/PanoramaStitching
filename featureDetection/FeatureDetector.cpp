@@ -36,16 +36,16 @@ void feature_detector::run_feature_detection() {
                 cerr << "Could not read images: " << endl;
                 continue;
             }
-
+            //Feature Matching
             vector<KeyPoint> keypoints_orb1, keypoints_orb2;
             Mat descriptors_orb1, descriptors_orb2;
 
             auto startOrb1 = std::chrono::system_clock::now();
-            akaze->detectAndCompute(img1, noArray(), keypoints_orb1, descriptors_orb1);
+            orb->detectAndCompute(img1, noArray(), keypoints_orb1, descriptors_orb1);
             auto stopOrb1 = std::chrono::system_clock::now();
 
             auto startOrb2 = std::chrono::system_clock::now();
-            akaze->detectAndCompute(img2, noArray(), keypoints_orb2, descriptors_orb2);
+            orb->detectAndCompute(img2, noArray(), keypoints_orb2, descriptors_orb2);
             auto stopOrb2 = std::chrono::system_clock::now();
 
             auto durationOrb1 = duration_cast<chrono::milliseconds>(stopOrb1 - startOrb1);
@@ -90,11 +90,12 @@ void feature_detector::run_feature_detection() {
             Mat img_matches;
             drawMatches( img1, keypoints_orb1, img2, keypoints_orb2, descriptorMatches, img_matches );
 
-            imshow("Matches of" + imagePaths[i] + " & " + imagePaths[i+1], img_matches);
+            imshow("Orb Matches of" + imagePaths[i] + " & " + imagePaths[i+1], img_matches);
         }
 
         for (int i = 0; i < imagePaths.size()-1; i+=2)
         {
+            //Feature Detection
             Mat img1 = imread(imagePaths[i], IMREAD_COLOR);
             Mat img2 = imread(imagePaths[i+1], IMREAD_COLOR);
 
@@ -131,10 +132,55 @@ void feature_detector::run_feature_detection() {
             cout << imagePaths[i+1] <<": \n" <<
                 "\t AKAZE keypoints = " << keypoints_akaze2.size() << " AKAZE Feature Detection Execution Time = " << durationAkaze2 << endl;
 
-            std::vector< DMatch > descriptorMatches;
+            //Descriptor Matching
+            std::vector< std::vector<DMatch> > descriptorKnnMatches;
             auto akazeMatchStart = std::chrono::system_clock::now();
-            matcher->match( descriptors_akaze1, descriptors_akaze2, descriptorMatches );
+            matcher->knnMatch( descriptors_akaze1, descriptors_akaze2, descriptorKnnMatches, 2 );
             auto akazeMatchStop = std::chrono::system_clock::now();
+
+            Mat img_matches;
+            drawMatches( img1, keypoints_akaze1, img2, keypoints_akaze2, descriptorKnnMatches, img_matches );
+
+            imshow("Akaze Matches of" + imagePaths[i] + " & " + imagePaths[i+1], img_matches);
+
+
+            // Homography Estimation
+            const float ratio_thresh = 0.75f;
+            std::vector<DMatch> good_matches;
+            for (size_t i = 0; i < descriptorKnnMatches.size(); i++)
+            {
+                if (descriptorKnnMatches[i][0].distance < ratio_thresh * descriptorKnnMatches[i][1].distance)
+                {
+                    good_matches.push_back(descriptorKnnMatches[i][0]);
+                }
+            }
+
+            std::vector<Point2f> img1akaze;
+            std::vector<Point2f> img2akaze;
+            for( size_t i = 0; i < good_matches.size(); i++ )
+            {
+                //-- Get the keypoints from the good matches
+                img1akaze.push_back( keypoints_akaze1[ good_matches[i].queryIdx ].pt );
+                img2akaze.push_back( keypoints_akaze2[ good_matches[i].trainIdx ].pt );
+            }
+
+            Mat H = findHomography( img1akaze, img2akaze, RANSAC );
+
+            Mat result;
+            warpPerspective(img1, result, H, Size(img2.cols, img2.rows));
+
+            Size panoramaSize(img1.cols + img2.cols, max(img1.rows, img2.rows));
+            Mat panoramaResult;
+            warpPerspective(img1, panoramaResult, H, panoramaSize);
+
+            Mat overlay;
+            addWeighted(result, 0.5, img2, 0.5, 0.0, overlay);
+            imshow("Overlay of: " + imagePaths[i] + " & " + imagePaths[i+1], overlay);
+
+
+            Mat panorama;
+            auto stitcher = Stitcher::create();
+
 
             if(i == 0)
             {
@@ -149,10 +195,6 @@ void feature_detector::run_feature_detection() {
                 akazeStairMatchDuration = duration_cast<chrono::microseconds>(akazeMatchStop - akazeMatchStart);
             }
 
-            Mat img_matches;
-            drawMatches( img1, keypoints_akaze1, img2, keypoints_akaze2, descriptorMatches, img_matches );
-
-            imshow("Matches of" + imagePaths[i] + " & " + imagePaths[i+1], img_matches);
         }
 
     cout << "Brick Descriptor Matching times: " << "AKAZE = " << akazeBrickMatchDuration << ", ORB = " << orbBrickMatchDuration << endl;
