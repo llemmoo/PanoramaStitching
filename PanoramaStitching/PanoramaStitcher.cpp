@@ -20,7 +20,8 @@ void PanoramaStitcher::run_panorama_stitcher(Detector chosenDetector, ImagePair 
     switch (chosenDetector)
     {
         case ORB:
-            detector = ORB::create(5000);
+            //Features max out for the ORB descriptor around 40000 keypoints.
+            detector = ORB::create(40000);
             break;
         case AKAZE:
             detector = AKAZE::create();
@@ -41,7 +42,7 @@ void PanoramaStitcher::run_panorama_stitcher(Detector chosenDetector, ImagePair 
     }
 
     for (int i = 0; i < imagePaths.size()-1; i+=2) {
-        /**
+            /**
              *
              *  FEATURE DESCRIPTION AND DESCRIPTOR MATCHING
              *
@@ -232,38 +233,62 @@ void PanoramaStitcher::run_panorama_stitcher(Detector chosenDetector, ImagePair 
          *  PANORAMA STITCHING
          *
          * */
-        vector<Point2f> corners1 =
-        {
-            Point2f(0,0), Point2f(img1.cols,0),
-            Point2f(img1.cols,img1.rows), Point2f(0,img1.rows)
-        };
 
-        vector<Point2f> warpedCorners1;
-        perspectiveTransform(corners1, warpedCorners1, H5);
+        vector<Mat> homographies = {H1, H3, H5, H10};
+        vector<string> names = {"H1", "H3", "H5", "H10"};
 
-        vector<Point2f> corners2 =
-        {
-            Point2f(0,0), Point2f(img2.cols,0),
-            Point2f(img2.cols,img2.rows), Point2f(0,img2.rows)
-        };
+        for (int j = 0; j < homographies.size(); j++) {
+            vector<Point2f> corners1 =
+            {
+                Point2f(0,0), Point2f(img1.cols,0),
+                Point2f(img1.cols,img1.rows), Point2f(0,img1.rows)
+            };
 
-        vector<Point2f> allCorners = warpedCorners1;
-        allCorners.insert(allCorners.end(), corners2.begin(), corners2.end());
+            vector<Point2f> warpedCorners1;
+            perspectiveTransform(corners1, warpedCorners1, homographies[j]);
 
-        Rect bbox = boundingRect(allCorners);
+            vector<Point2f> corners2 =
+            {
+                Point2f(0,0), Point2f(img2.cols,0),
+                Point2f(img2.cols,img2.rows), Point2f(0,img2.rows)
+            };
 
-        Mat translation =
-        (Mat_<double>(3,3) << 1, 0, -bbox.x,
-                                        0, 1, -bbox.y,
-                                        0, 0, 1);
+            vector<Point2f> allCorners = warpedCorners1;
+            allCorners.insert(allCorners.end(), corners2.begin(), corners2.end());
 
-        Mat panorama(bbox.height, bbox.width, img1.type());
-        warpPerspective(img1, panorama, translation * H5, panorama.size());
+            Rect bbox = boundingRect(allCorners);
 
-        Mat roi(panorama, Rect(-bbox.x, -bbox.y, img2.cols, img2.rows));
-        img2.copyTo(roi);
+            Mat translation =
+            (Mat_<double>(3,3) << 1, 0, -bbox.x,
+                                            0, 1, -bbox.y,
+                                            0, 0, 1);
 
-        imshow("Panorama of " + imagePaths[i] + " & " + imagePaths[i+1], panorama);
+            Mat panorama(bbox.height, bbox.width, img1.type());
+            warpPerspective(img1, panorama, translation * homographies[j], panorama.size());
+
+            Mat roi(panorama, Rect(-bbox.x, -bbox.y, img2.cols, img2.rows));
+            img2.copyTo(roi);
+            imshow("Panorama of " + imagePaths[i] + " & " + imagePaths[i+1] + names[j], panorama);
+
+            //Featherblending attempt using OpenCV's solution
+            Mat result5_16S, img2_16S;
+            result5.convertTo(result5_16S, CV_16S);
+            img2.convertTo(img2_16S, CV_16S);
+            Mat maskWarp(result5.size(), CV_8U, Scalar::all(255));
+            Mat originalMask(img2.size(), CV_8U, Scalar::all(255));
+
+            detail::FeatherBlender blender;
+            blender.prepare(bbox);
+
+            blender.feed(result5_16S, maskWarp, Point(-bbox.x, -bbox.y));
+            blender.feed(img2_16S, originalMask, Point(-bbox.x, -bbox.y));
+
+            Mat result, resultMask;
+            blender.blend(result, resultMask);
+
+            result.convertTo(result, CV_8U);
+            imshow("Feather blended panorama", result);
+        }
     }
         cout << "Press any key to close windows..." << endl;
         waitKey(0);
