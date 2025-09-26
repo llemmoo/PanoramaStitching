@@ -208,7 +208,7 @@ void feature_detector::run_feature_detection() {
              * */
 
             //Lowe's ratio to find better matches
-            const float ratio_thresh = 0.75f;
+            const float ratio_thresh = 0.8f;
             std::vector<DMatch> good_matches;
             for (size_t i = 0; i < descriptorKnnMatches.size(); i++)
             {
@@ -218,13 +218,13 @@ void feature_detector::run_feature_detection() {
                 }
             }
 
-            std::vector<Point2f> img1akaze;
-            std::vector<Point2f> img2akaze;
+            std::vector<Point2f> img1Akaze;
+            std::vector<Point2f> img2Akaze;
             for( size_t i = 0; i < good_matches.size(); i++ )
             {
                 //Get the keypoints from the good matches
-                img1akaze.push_back( keypoints_akaze1[ good_matches[i].queryIdx ].pt );
-                img2akaze.push_back( keypoints_akaze2[ good_matches[i].trainIdx ].pt );
+                img1Akaze.push_back( keypoints_akaze1[ good_matches[i].queryIdx ].pt );
+                img2Akaze.push_back( keypoints_akaze2[ good_matches[i].trainIdx ].pt );
             }
 
             //We output a inlier mask to find the number of inliers and experiment with the ransacReprojThreshhold
@@ -233,10 +233,10 @@ void feature_detector::run_feature_detection() {
             Mat inlierMask5;
             Mat inlierMask10;
 
-            Mat H1 = findHomography( img1akaze, img2akaze, RANSAC, 1, inlierMask1);
-            Mat H3 = findHomography( img1akaze, img2akaze, RANSAC, 3, inlierMask3);
-            Mat H5 = findHomography( img1akaze, img2akaze, RANSAC, 5, inlierMask5);
-            Mat H10 = findHomography( img1akaze, img2akaze, RANSAC, 10, inlierMask10);
+            Mat H1 = findHomography( img1Akaze, img2Akaze, RANSAC, 1, inlierMask1);
+            Mat H3 = findHomography( img1Akaze, img2Akaze, RANSAC, 3, inlierMask3);
+            Mat H5 = findHomography( img1Akaze, img2Akaze, RANSAC, 5, inlierMask5);
+            Mat H10 = findHomography( img1Akaze, img2Akaze, RANSAC, 10, inlierMask10);
 
             int numberOfInliers1 = countNonZero(inlierMask1);
             int numberOfInliers3 = countNonZero(inlierMask3);
@@ -277,6 +277,46 @@ void feature_detector::run_feature_detection() {
              *
              * */
 
+            vector<Point2f> corners1 = { Point2f(0,0), Point2f(img1.cols,0),
+                                         Point2f(img1.cols,img1.rows), Point2f(0,img1.rows) };
+
+            vector<Point2f> warpedCorners1;
+            perspectiveTransform(corners1, warpedCorners1, H5);
+
+            vector<Point2f> corners2 = { Point2f(0,0), Point2f(img2.cols,0),
+                                         Point2f(img2.cols,img2.rows), Point2f(0,img2.rows) };
+
+            vector<Point2f> allCorners = warpedCorners1;
+            allCorners.insert(allCorners.end(), corners2.begin(), corners2.end());
+
+            Rect bbox = boundingRect(allCorners);
+
+            Mat translation =
+            (Mat_<double>(3,3) << 1, 0, -bbox.x,
+                                            0, 1, -bbox.y,
+                                            0, 0, 1);
+
+            Mat panorama(bbox.height, bbox.width, img1.type());
+            warpPerspective(img1, panorama, translation * H5, panorama.size());
+
+            Mat roi(panorama, Rect(-bbox.x, -bbox.y, img2.cols, img2.rows));
+            img2.copyTo(roi);
+
+            imshow("Panorama of " + imagePaths[i] + " & " + imagePaths[i+1], panorama);
+
+            Mat result, resultMask;
+
+            detail::FeatherBlender blender;
+
+            blender.prepare(bbox);
+
+            Mat maskWarp(result5.size(), CV_16SC3, Scalar::all(255));
+            Mat originalMask(img2.size(), CV_16SC3, Scalar::all(255));
+
+            blender.feed(result5, maskWarp, Point(0,0));
+            blender.feed(img2, originalMask, Point(0,0));
+
+            blender.blend(result,resultMask);
         }
 
     cout << "Brick Descriptor Matching times: " << "AKAZE = " << akazeBrickMatchDuration << ", ORB = " << orbBrickMatchDuration << endl;

@@ -8,7 +8,6 @@ int main() {
     std::cout << "Runtime OpenCV: " << cv::getVersionString() << std::endl;
     FeatureDetection::feature_detector detector;
 
-
     while (true) {
         std::cout << "1. Feature Detection\n";
         std::cout << "2. Image Stitching\n";
@@ -29,9 +28,6 @@ int main() {
         else if (choice == 2) {
             int numImages;
 
-            // auto panorama = stitcher.stitch(loadImages(files));
-            // saveImage("result.jpg", panorama);
-            // std::cout << "Saved result to result.jpg\n";
         }
         else {
             std::cout << "Invalid choice, try again.\n";
