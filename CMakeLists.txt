@@ -12,7 +12,7 @@ message(STATUS "OpenCV version: ${OpenCV_VERSION}")
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_executable(PanoramaStitching main.cpp
-        featureDetection/FeatureDetector.h
-        featureDetection/FeatureDetector.cpp)
+        PanoramaStitching/PanoramaStitcher.h
+        PanoramaStitching/PanoramaStitcher.cpp)
 
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})

@@ -1,38 +1,109 @@
-#include "FeatureDetection/FeatureDetector.h"
+#include "PanoramaStitching/PanoramaStitcher.h"
 #include <iostream>
-#include <string>
-#include <vector>
 #include <opencv2/core/utility.hpp>
 
-int main() {
-    std::cout << "Runtime OpenCV: " << cv::getVersionString() << std::endl;
-    FeatureDetection::feature_detector detector;
+using namespace std;
 
-    while (true) {
-        std::cout << "1. Feature Detection\n";
-        std::cout << "2. Image Stitching\n";
-        std::cout << "0. Exit\n";
-        std::cout << "Select an option: ";
+void showMainMenu()
+{
+    cout << "\n===== Panorama Stitching Application =====\n";
+    cout << "1. Run program\n";
+    cout << "0. Exit\n";
+    cout << "Select an option: ";
+}
 
+void showDetectorMenu()
+{
+    cout << "\n--- Select Feature Detector ---\n";
+    cout << "1. ORB\n";
+    cout << "2. AKAZE\n";
+    cout << "Select detector: ";
+}
+
+void showImageSetMenu()
+{
+    cout << "\n--- Select Image Set ---\n";
+    cout << "1. Brick\n";
+    cout << "2. Car\n";
+    cout << "3. Stairs\n";
+    cout << "Select image set: ";
+}
+
+int main()
+{
+    cout << "Assignment 1: Feature Detection, Matching, and Panorama Stitching with Experimental Evaluation \n\n" << endl;
+    string chosenDetector;
+    string chosenImagePair;
+    while (true)
+    {
+        showMainMenu();
         int choice;
-        std::cin >> choice;
+        cin >> choice;
 
-        if (choice == 0) {
-            std::cout << "Exiting...\n";
+        if (choice == 0)
+        {
+            cout << "Exiting...\n";
             break;
         }
-        else if (choice == 1) {
-            std::cout << "Running feature detection on images\n";
-            detector.run_feature_detection();
-        }
-        else if (choice == 2) {
-            int numImages;
 
+        if (choice >= 1 && choice <= 3)
+        {
+            // Select detector
+            showDetectorMenu();
+            int detector_choice;
+            cin >> detector_choice;
+
+            PanoramaStitching::Detector detector;
+            if (detector_choice == 1)
+            {
+                detector = PanoramaStitching::ORB;
+                chosenDetector = "ORB";
+            }
+            else if (detector_choice == 2)
+            {
+                detector = PanoramaStitching::AKAZE;
+                chosenDetector = "AKAZE";
+            }
+            else {
+                cout << "Invalid detector choice.\n";
+                continue;
+            }
+
+            // Choose an image pair
+            showImageSetMenu();
+            int dataset_choice;
+            cin >> dataset_choice;
+
+            PanoramaStitching::ImagePair dataset;
+            if (dataset_choice == 1)
+            {
+                dataset = PanoramaStitching::brick;
+                chosenImagePair = "brick";
+            }
+            if (dataset_choice == 2)
+            {
+                dataset = PanoramaStitching::car;
+                chosenImagePair = "car";
+            }
+            if(dataset_choice == 3)
+            {
+                dataset = PanoramaStitching::stair;
+                chosenImagePair = "stairs";
+            }
+            else
+            {
+                cout << "Invalid image set choice.\n";
+                continue;
+            }
+
+            cout << "\n[Feature Detection] using " << chosenDetector
+                 << " on dataset: " << chosenImagePair << endl;
+            PanoramaStitching::PanoramaStitcher::run_panorama_stitcher(detector, dataset);
         }
-        else {
-            std::cout << "Invalid choice, try again.\n";
+        else
+        {
+            cout << "Invalid choice, try again.\n";
         }
     }
-
     return 0;
 }
