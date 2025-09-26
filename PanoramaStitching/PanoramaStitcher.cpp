@@ -21,7 +21,7 @@ void PanoramaStitcher::run_panorama_stitcher(Detector chosenDetector, ImagePair 
     {
         case ORB:
             //Features max out for the ORB descriptor around 40000 keypoints.
-            detector = ORB::create(40000);
+            detector = ORB::create(4000);
             break;
         case AKAZE:
             detector = AKAZE::create();
