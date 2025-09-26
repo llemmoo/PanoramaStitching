@@ -40,13 +40,7 @@ int main()
         int choice;
         cin >> choice;
 
-        if (choice == 0)
-        {
-            cout << "Exiting...\n";
-            break;
-        }
-
-        if (choice >= 1 && choice <= 3)
+        if (choice == 1)
         {
             // Select detector
             showDetectorMenu();
@@ -80,12 +74,12 @@ int main()
                 dataset = PanoramaStitching::brick;
                 chosenImagePair = "brick";
             }
-            if (dataset_choice == 2)
+            else if (dataset_choice == 2)
             {
                 dataset = PanoramaStitching::car;
                 chosenImagePair = "car";
             }
-            if(dataset_choice == 3)
+            else if(dataset_choice == 3)
             {
                 dataset = PanoramaStitching::stair;
                 chosenImagePair = "stairs";
@@ -99,6 +93,11 @@ int main()
             cout << "\n[Feature Detection] using " << chosenDetector
                  << " on dataset: " << chosenImagePair << endl;
             PanoramaStitching::PanoramaStitcher::run_panorama_stitcher(detector, dataset);
+        }
+        else if (choice == 0)
+        {
+            cout << "Exiting...\n";
+            break;
         }
         else
         {
