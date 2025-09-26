@@ -15,14 +15,16 @@ void PanoramaStitcher::run_panorama_stitcher(Detector chosenDetector, ImagePair 
 
     vector<string> imagePaths;
 
-    Ptr<FeatureDetector> detector;
+    Ptr<Feature2D> detector;
 
     switch (chosenDetector)
     {
         case ORB:
-            detector = ORB::create(50000);
+            detector = ORB::create(5000);
+            break;
         case AKAZE:
             detector = AKAZE::create();
+            break;
     }
 
     switch (imagePair)
@@ -92,16 +94,10 @@ void PanoramaStitcher::run_panorama_stitcher(Detector chosenDetector, ImagePair 
             distances.push_back(m.data()->distance);
         }
 
-        //OpenCV conversion
-
-        // Find max distance to set range
+        //Histogram plotting
         double maxVal = *max_element(distances.begin(), distances.end());
-
-        // Histogram parameters
         int histSize = 50; // number of bins
         vector<int> bins(histSize, 0);
-
-        // Fill bins manually
         for (auto d : distances) {
             int bin = cvFloor((d / maxVal) * (histSize - 1));
             bins[bin]++;
@@ -236,15 +232,20 @@ void PanoramaStitcher::run_panorama_stitcher(Detector chosenDetector, ImagePair 
          *  PANORAMA STITCHING
          *
          * */
-
-        vector<Point2f> corners1 = { Point2f(0,0), Point2f(img1.cols,0),
-                                     Point2f(img1.cols,img1.rows), Point2f(0,img1.rows) };
+        vector<Point2f> corners1 =
+        {
+            Point2f(0,0), Point2f(img1.cols,0),
+            Point2f(img1.cols,img1.rows), Point2f(0,img1.rows)
+        };
 
         vector<Point2f> warpedCorners1;
         perspectiveTransform(corners1, warpedCorners1, H5);
 
-        vector<Point2f> corners2 = { Point2f(0,0), Point2f(img2.cols,0),
-                                     Point2f(img2.cols,img2.rows), Point2f(0,img2.rows) };
+        vector<Point2f> corners2 =
+        {
+            Point2f(0,0), Point2f(img2.cols,0),
+            Point2f(img2.cols,img2.rows), Point2f(0,img2.rows)
+        };
 
         vector<Point2f> allCorners = warpedCorners1;
         allCorners.insert(allCorners.end(), corners2.begin(), corners2.end());
