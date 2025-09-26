@@ -13,8 +13,6 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_executable(PanoramaStitching main.cpp
         featureDetection/FeatureDetector.h
-        HomographyEstimation/HomographyEstimator.h
-        imageStitching/ImageStitcher.h
         featureDetection/FeatureDetector.cpp)
 
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})

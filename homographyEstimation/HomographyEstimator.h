@@ -1,8 +1,0 @@
-//
-// Created by Oliver on 22/09/2025.
-//
-
-#ifndef HOMOGRAPHYESTIMATOR_H
-#define HOMOGRAPHYESTIMATOR_H
-
-#endif //HOMOGRAPHYESTIMATOR_H

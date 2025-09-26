@@ -26,6 +26,8 @@ void feature_detector::run_feature_detection() {
         "../images/stair2.jpg"
     };
 
+    // ORB
+    cout << "ORB Experiments \n\n" << endl;
         for (int i = 0; i < imagePaths.size()-1; i+=2)
         {
             Mat img1 = imread(imagePaths[i], IMREAD_COLOR);
@@ -93,9 +95,15 @@ void feature_detector::run_feature_detection() {
             imshow("Orb Matches of" + imagePaths[i] + " & " + imagePaths[i+1], img_matches);
         }
 
+        cout << "\n AKAZE Experiments \n\n" << endl;
+        // AKAZE
         for (int i = 0; i < imagePaths.size()-1; i+=2)
         {
-            //Feature Detection
+            /**
+             *
+             *  FEATURE DESCRIPTION AND DESCRIPTOR MATCHING
+             *
+             * */
             Mat img1 = imread(imagePaths[i], IMREAD_COLOR);
             Mat img2 = imread(imagePaths[i+1], IMREAD_COLOR);
 
@@ -132,19 +140,74 @@ void feature_detector::run_feature_detection() {
             cout << imagePaths[i+1] <<": \n" <<
                 "\t AKAZE keypoints = " << keypoints_akaze2.size() << " AKAZE Feature Detection Execution Time = " << durationAkaze2 << endl;
 
-            //Descriptor Matching
+            //Histogram plotting of distances
+
+
             std::vector< std::vector<DMatch> > descriptorKnnMatches;
             auto akazeMatchStart = std::chrono::system_clock::now();
             matcher->knnMatch( descriptors_akaze1, descriptors_akaze2, descriptorKnnMatches, 2 );
             auto akazeMatchStop = std::chrono::system_clock::now();
+
+            vector<float> distances;
+            for (auto &m : descriptorKnnMatches) {
+                distances.push_back(m.data()->distance);
+            }
+
+            //OpenCV conversion
+
+            // Find max distance to set range
+            double maxVal = *max_element(distances.begin(), distances.end());
+
+            // Histogram parameters
+            int histSize = 50; // number of bins
+            vector<int> bins(histSize, 0);
+
+            // Fill bins manually
+            for (auto d : distances) {
+                int bin = cvFloor((d / maxVal) * (histSize - 1));
+                bins[bin]++;
+            }
+
+            //we draw an image the size of 512 by 400 to show our histogram
+            int hist_w = 512, hist_h = 400;
+            int bin_w = cvRound((double) hist_w / histSize);
+            Mat histImage(hist_h, hist_w, CV_8UC3, Scalar(0,0,0));
+
+            int maxCount = *max_element(bins.begin(), bins.end());
+            for (int i = 1; i < histSize; i++) {
+                line(histImage,
+                     Point(bin_w*(i-1), hist_h - cvRound(((double)bins[i-1]/maxCount)*hist_h)),
+                     Point(bin_w*(i),   hist_h - cvRound(((double)bins[i]/maxCount)*hist_h)),
+                     Scalar(255, 0, 0), 2, 8, 0);
+            }
+
+            imshow("Histogram of Match Distances for: " + imagePaths[i] + " & " + imagePaths[i+1], histImage);
 
             Mat img_matches;
             drawMatches( img1, keypoints_akaze1, img2, keypoints_akaze2, descriptorKnnMatches, img_matches );
 
             imshow("Akaze Matches of" + imagePaths[i] + " & " + imagePaths[i+1], img_matches);
 
+            if(i == 0)
+            {
+                akazeBrickMatchDuration = duration_cast<chrono::microseconds>(akazeMatchStop - akazeMatchStart);
+            }
+            if (i == 2)
+            {
+                akazeCarMatchDuration = duration_cast<chrono::microseconds>(akazeMatchStop - akazeMatchStart);
+            }
+            if (i == 4)
+            {
+                akazeStairMatchDuration = duration_cast<chrono::microseconds>(akazeMatchStop - akazeMatchStart);
+            }
 
-            // Homography Estimation
+            /**
+             *
+             *  HOMOGRAPHY ESTIMATION
+             *
+             * */
+
+            //Lowe's ratio to find better matches
             const float ratio_thresh = 0.75f;
             std::vector<DMatch> good_matches;
             for (size_t i = 0; i < descriptorKnnMatches.size(); i++)
@@ -159,41 +222,60 @@ void feature_detector::run_feature_detection() {
             std::vector<Point2f> img2akaze;
             for( size_t i = 0; i < good_matches.size(); i++ )
             {
-                //-- Get the keypoints from the good matches
+                //Get the keypoints from the good matches
                 img1akaze.push_back( keypoints_akaze1[ good_matches[i].queryIdx ].pt );
                 img2akaze.push_back( keypoints_akaze2[ good_matches[i].trainIdx ].pt );
             }
 
-            Mat H = findHomography( img1akaze, img2akaze, RANSAC );
+            //We output a inlier mask to find the number of inliers and experiment with the ransacReprojThreshhold
+            Mat inlierMask1;
+            Mat inlierMask3;
+            Mat inlierMask5;
+            Mat inlierMask10;
 
-            Mat result;
-            warpPerspective(img1, result, H, Size(img2.cols, img2.rows));
+            Mat H1 = findHomography( img1akaze, img2akaze, RANSAC, 1, inlierMask1);
+            Mat H3 = findHomography( img1akaze, img2akaze, RANSAC, 3, inlierMask3);
+            Mat H5 = findHomography( img1akaze, img2akaze, RANSAC, 5, inlierMask5);
+            Mat H10 = findHomography( img1akaze, img2akaze, RANSAC, 10, inlierMask10);
 
-            Size panoramaSize(img1.cols + img2.cols, max(img1.rows, img2.rows));
-            Mat panoramaResult;
-            warpPerspective(img1, panoramaResult, H, panoramaSize);
+            int numberOfInliers1 = countNonZero(inlierMask1);
+            int numberOfInliers3 = countNonZero(inlierMask3);
+            int numberOfInliers5 = countNonZero(inlierMask5);
+            int numberOfInliers10 = countNonZero(inlierMask10);
 
-            Mat overlay;
-            addWeighted(result, 0.5, img2, 0.5, 0.0, overlay);
-            imshow("Overlay of: " + imagePaths[i] + " & " + imagePaths[i+1], overlay);
+            cout << "Number of inliers for threshold 1: " << numberOfInliers1 << endl;
+            cout << "Number of inliers for threshold 3: " << numberOfInliers3 << endl;
+            cout << "Number of inliers for threshold 5: " << numberOfInliers5 << endl;
+            cout << "Number of inliers for threshold 10: " << numberOfInliers10 << endl;
+
+            Mat result1;
+            Mat result3;
+            Mat result5;
+            Mat result10;
+            warpPerspective(img1, result1, H1, Size(img2.cols, img2.rows));
+            warpPerspective(img1, result3, H3, Size(img2.cols, img2.rows));
+            warpPerspective(img1, result5, H5, Size(img2.cols, img2.rows));
+            warpPerspective(img1, result10, H10, Size(img2.cols, img2.rows));
+
+            Mat overlay1;
+            Mat overlay3;
+            Mat overlay5;
+            Mat overlay10;
+            addWeighted(result1, 0.5, img2, 0.5, 0.0, overlay1);
+            addWeighted(result3, 0.5, img2, 0.5, 0.0, overlay3);
+            addWeighted(result5, 0.5, img2, 0.5, 0.0, overlay5);
+            addWeighted(result10, 0.5, img2, 0.5, 0.0, overlay10);
+            imshow("Overlay of: " + imagePaths[i] + " & " + imagePaths[i+1] + " ransac 1", overlay1);
+            imshow("Overlay of: " + imagePaths[i] + " & " + imagePaths[i+1] + " ransac 3", overlay3);
+            imshow("Overlay of: " + imagePaths[i] + " & " + imagePaths[i+1] + " ransac 5", overlay5);
+            imshow("Overlay of: " + imagePaths[i] + " & " + imagePaths[i+1] + " ransac 10", overlay10);
 
 
-            Mat panorama;
-            auto stitcher = Stitcher::create();
-
-
-            if(i == 0)
-            {
-                akazeBrickMatchDuration = duration_cast<chrono::microseconds>(akazeMatchStop - akazeMatchStart);
-            }
-            if (i == 2)
-            {
-                akazeCarMatchDuration = duration_cast<chrono::microseconds>(akazeMatchStop - akazeMatchStart);
-            }
-            if (i == 4)
-            {
-                akazeStairMatchDuration = duration_cast<chrono::microseconds>(akazeMatchStop - akazeMatchStart);
-            }
+            /**
+             *
+             *  PANORAMA STITCHING
+             *
+             * */
 
         }
 

@@ -1,5 +1,4 @@
 #include "FeatureDetection/FeatureDetector.h"
-#include "ImageStitching/ImageStitcher.h"
 #include <iostream>
 #include <string>
 #include <vector>
