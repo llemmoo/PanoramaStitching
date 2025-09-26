@@ -147,11 +147,10 @@ void PanoramaStitcher::run_panorama_stitcher(Detector chosenDetector, ImagePair 
          * */
 
         //Lowe's ratio to find better matches set to 0.8 like in slides
-        const float ratio_thresh = 0.8f;
         std::vector<DMatch> good_matches;
         for (size_t i = 0; i < descriptorKnnMatches.size(); i++)
         {
-            if (descriptorKnnMatches[i][0].distance < ratio_thresh * descriptorKnnMatches[i][1].distance)
+            if (descriptorKnnMatches[i][0].distance < 0.8 * descriptorKnnMatches[i][1].distance)
             {
                 good_matches.push_back(descriptorKnnMatches[i][0]);
             }
